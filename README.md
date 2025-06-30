@@ -99,24 +99,3 @@ fastify.listen({ port: 3000 }, () => {
   logger.info('User service started on port 3000');
 });
 ```
-
-### With Docker
-Works seamlessly with Docker and container orchestration:
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-EXPOSE 3000
-CMD ["node", "dist/index.js"]
-```
-
-## 🤝 Contributing
-
-This package is part of the ft-transcendence project. For issues or contributions, please refer to the main repository.
-
-## 📄 License
-
-MIT
