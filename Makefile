@@ -6,10 +6,16 @@ down:
 	@echo "Stopping services... "
 	docker-compose down
 
+restart:
+	@echo "Restarting services..."
+	docker-compose restart
+
 run:
-	@echo "Starting the Pong Game..."
+	@echo "Starting the Example Service..."
 	@if command -v xdg-open > /dev/null; then \
 				xdg-open http://localhost:3000; \
+			elif command -v open > /dev/null; then \
+				open http://localhost:3000; \
 			else \
 				echo "Could not detect browser opener. Please manually open the URLs above."; \
 			fi
@@ -23,9 +29,9 @@ clean:
 metrics:
 	@echo "Opening monitoring dashboards..."
 	@if command -v xdg-open > /dev/null; then \
-			xdg-open http://localhost:9090; \
+			xdg-open http://localhost:3001; \
 		elif command -v open > /dev/null; then \
-			open http://localhost:9090; \
+			open http://localhost:3001; \
 		else \
 			echo "Could not detect browser opener. Please manually open the URLs above."; \
 		fi

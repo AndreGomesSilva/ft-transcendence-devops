@@ -24,19 +24,76 @@ const setupLogging = (serviceName, logLevel) => {
     const logstashPort = parseInt(process.env.LOGSTASH_PORT || "5000", 10);
     if (logstashHost && logstashPort) {
         const net = require("net");
-        const logstashStream = new net.Socket();
-        // Connect to Logstash
-        logstashStream.connect(logstashPort, logstashHost, () => {
-            console.log(`Connected to Logstash at ${logstashHost}:${logstashPort}`);
-        });
-        logstashStream.on("error", (err) => {
-            console.error("Logstash connection error:", err.message);
-        });
+        let logstashStream = null;
+        let isConnected = false;
+        let reconnectTimeout = null;
+        const maxReconnectAttempts = 10;
+        let reconnectAttempts = 0;
+        const connectToLogstash = () => {
+            if (logstashStream) {
+                logstashStream.destroy();
+            }
+            logstashStream = new net.Socket();
+            logstashStream.setKeepAlive(true, 10000);
+            logstashStream.setTimeout(30000);
+            logstashStream.connect(logstashPort, logstashHost, () => {
+                console.log(`✅ Connected to Logstash at ${logstashHost}:${logstashPort}`);
+                isConnected = true;
+                reconnectAttempts = 0;
+            });
+            logstashStream.on("error", (err) => {
+                console.error(`❌ Logstash connection error:`, err.message);
+                isConnected = false;
+                scheduleReconnect();
+            });
+            logstashStream.on("close", () => {
+                console.log(`🔌 Logstash connection closed`);
+                isConnected = false;
+                scheduleReconnect();
+            });
+            logstashStream.on("timeout", () => {
+                console.error(`⏰ Logstash connection timeout`);
+                logstashStream.destroy();
+            });
+        };
+        const scheduleReconnect = () => {
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+            }
+            if (reconnectAttempts < maxReconnectAttempts) {
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+                console.log(`🔄 Scheduling Logstash reconnect attempt ${reconnectAttempts + 1}/${maxReconnectAttempts} in ${delay}ms`);
+                reconnectTimeout = setTimeout(() => {
+                    reconnectAttempts++;
+                    connectToLogstash();
+                }, delay);
+            }
+            else {
+                console.error(`💀 Max Logstash reconnect attempts (${maxReconnectAttempts}) exceeded`);
+            }
+        };
+        // Initial connection with delay for container startup
+        setTimeout(() => {
+            connectToLogstash();
+        }, 2000);
         streams.push({
             stream: {
                 write: (msg) => {
-                    if (logstashStream.writable) {
-                        logstashStream.write(msg + "\n");
+                    try {
+                        if (isConnected && logstashStream && logstashStream.writable) {
+                            const logEntry = JSON.parse(msg);
+                            // Ensure proper format for Logstash
+                            logEntry.timestamp = logEntry.time || new Date().toISOString();
+                            logEntry.service = logEntry.name || serviceName;
+                            logstashStream.write(JSON.stringify(logEntry) + "\n");
+                        }
+                        else if (!isConnected && reconnectAttempts < maxReconnectAttempts) {
+                            // Buffer critical logs to console when Logstash is unavailable
+                            console.log(`[BUFFERED LOG] ${msg.trim()}`);
+                        }
+                    }
+                    catch (error) {
+                        console.error(`📝 Error writing to Logstash:`, error);
                     }
                 },
             },

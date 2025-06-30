@@ -11,7 +11,7 @@ const app = Fastify();
 const observabilitySetup = setupObservability(app, {
   serviceName: "example_service",
   logLevel: process.env.LOG_LEVEL || "info",
-  enableMetrics: false, // Focus on logging only
+  enableMetrics: true,
   enableHealthCheck: true,
   healthPath: "/health",
 });
