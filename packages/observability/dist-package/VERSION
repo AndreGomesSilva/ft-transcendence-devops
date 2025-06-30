@@ -1,0 +1,24 @@
+Package: @ft-transcendence/observability
+Version: 1.0.0
+Build Date: 2025-06-30 01:02:29 UTC
+Build Host: cachyos-x8664
+Node Version: v22.16.0
+NPM Version: 11.4.2
+
+Features:
+- Prometheus metrics collection
+- Structured JSON logging with Pino
+- Built-in health checks (/health)
+- Request tracing and correlation
+- Enhanced error handling
+- TypeScript support
+- Docker integration
+- Microservices ready
+
+Installation:
+1. Extract archive: tar -xzf ft-transcendence-observability-1.0.0.tar.gz
+2. Install in your service: npm install file:./ft-transcendence-observability-1.0.0
+3. Import in your code: import { setupObservability } from '@ft-transcendence/observability';
+4. Setup: setupObservability(app, 'your-service-name');
+
+For detailed instructions, see INSTALL.md
