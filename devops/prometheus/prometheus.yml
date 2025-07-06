@@ -9,3 +9,7 @@ scrape_configs:
   - job_name: "example-service"
     static_configs:
       - targets: ["example_service:3000"]
+  - job_name: "frontend:3005"
+    static_configs:
+      - targets: ["frontend:3005"]
+    metrics_path: "/metrics"

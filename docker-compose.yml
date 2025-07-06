@@ -14,6 +14,18 @@ services:
     depends_on:
       - logstash
 
+  frontend:
+    build:
+      context: .
+      dockerfile: ./packages/frontend/Dockerfile
+    env_file: ./packages/frontend/.env
+    ports:
+      - "${FRONTEND_PORT:-3005}:3005"
+    networks:
+      - ${NETWORK_NAME:-ft-net}
+    depends_on:
+      - logstash
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION:-9.0.2}
     environment:
