@@ -26,6 +26,18 @@ services:
     depends_on:
       - logstash
 
+  game:
+    build:
+      context: .
+      dockerfile: ./packages/game/Dockerfile
+    env_file: ./packages/game/.env
+    ports:
+      - "${GAME_PORT:-3002}:3002"
+    networks:
+      - ${NETWORK_NAME:-ft-net}
+    depends_on:
+      - logstash
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTICSEARCH_VERSION:-9.0.2}
     environment:
