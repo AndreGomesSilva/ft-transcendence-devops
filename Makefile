@@ -11,13 +11,17 @@ restart:
 	docker-compose restart
 
 run:
-	@echo "Starting the Example Service..."
+	@echo "Opening application services..."
 	@if command -v xdg-open > /dev/null; then \
-				xdg-open http://localhost:3000; \
+				xdg-open http://localhost:3005 & \
+				xdg-open http://localhost:3002; \
 			elif command -v open > /dev/null; then \
-				open http://localhost:3000; \
+				open http://localhost:3005 & \
+				open http://localhost:3002; \
 			else \
-				echo "Could not detect browser opener. Please manually open the URLs above."; \
+				echo "Could not detect browser opener. Please manually open:"; \
+				echo "  Frontend: http://localhost:3005"; \
+				echo "  Game: http://localhost:3002"; \
 			fi
 
 clean:
@@ -37,10 +41,11 @@ metrics:
 		fi
 
 help:
-	@echo "Commands:"
-	@echo "make up          - Start all services"
-	@echo "make down        - Stop services"
-	@echo "make clean       - Full cleanup"
-	@echo "make metrics     - Open monitoring dashboards"
+	@echo "ft_transcendence Commands:"
+	@echo "make up          - Start all services (frontend, game, ELK stack)"
+	@echo "make down        - Stop all services"
+	@echo "make run         - Open application URLs in browser"
+	@echo "make clean       - Full cleanup (remove containers, volumes, images)"
+	@echo "make metrics     - Open monitoring dashboards (Grafana)"
 
 .PHONY: up down restart logs clean metrics

@@ -19,86 +19,32 @@ const observabilitySetup = setupObservability(app, {
   metricsPath: "/metrics",
 });
 
-// MIME types for different file extensions
-const mimeTypes: { [key: string]: string } = {
-  '.html': 'text/html',
-  '.js': 'application/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.woff': 'application/font-woff',
-  '.woff2': 'application/font-woff2',
-  '.ttf': 'application/font-ttf',
-  '.eot': 'application/vnd.ms-fontobject'
-};
-
 // Initialize async setup
 const initializeApp = async () => {
   // Logging for service startup
   app.log.info("Game service starting up");
 
-  // Static file serving from dist directory
-  app.get('*', async (request: FastifyRequest, reply: FastifyReply) => {
-    const requestUrl = request.url === '/' ? '/index.html' : request.url;
-    const distDir = path.join(__dirname, '../dist/game');
-    let filePath = path.join(distDir, requestUrl);
-    
+  // Register static file serving (much simpler!)
+  await app.register(require('@fastify/static'), {
+    root: path.join(__dirname, '../dist/game'),
+    prefix: '/',
+  });
+
+  // SPA fallback route - serve index.html for unknown routes
+  app.setNotFoundHandler(async (request: FastifyRequest, reply: FastifyReply) => {
     app.log.info(
       {
-        action: "static_file_request",
-        path: requestUrl,
-        filePath: filePath,
+        action: "spa_fallback",
+        path: request.url,
         ip: request.ip,
         userAgent: request.headers["user-agent"],
       },
-      "Static file requested",
+      "SPA fallback to index.html",
     );
-
-    try {
-      // Check if file exists
-      if (!fs.existsSync(filePath)) {
-        // File not found, serve index.html for SPA routing
-        filePath = path.join(distDir, 'index.html');
-        app.log.info(
-          {
-            action: "spa_fallback",
-            originalPath: requestUrl,
-            fallbackPath: filePath,
-          },
-          "File not found, serving index.html for SPA routing",
-        );
-      }
-
-      const content = fs.readFileSync(filePath);
-      const ext = path.extname(filePath).toLowerCase();
-      const mimeType = mimeTypes[ext] || 'application/octet-stream';
-      
-      app.log.info(
-        {
-          action: "static_file_served",
-          path: requestUrl,
-          mimeType: mimeType,
-          size: content.length,
-        },
-        "Static file served successfully",
-      );
-
-      return reply.type(mimeType).send(content);
-    } catch (error) {
-      app.log.error(
-        {
-          error: error,
-          path: requestUrl,
-          filePath: filePath,
-        },
-        'Error serving static file'
-      );
-      return reply.code(404).send('File not found');
-    }
+    
+    const indexPath = path.join(__dirname, '../dist/game/index.html');
+    const content = fs.readFileSync(indexPath);
+    return reply.type('text/html').send(content);
   });
 };
 

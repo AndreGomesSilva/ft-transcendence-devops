@@ -22,112 +22,68 @@ const setupLogging = (serviceName: string, logLevel?: string): Logger => {
   // Create streams for logging
   const streams: any[] = [];
 
-  // Always add console output for development
-  if (process.env.NODE_ENV !== "production") {
-    streams.push({
-      stream: pino.destination({
-        sync: false,
-      }),
-      level,
-    });
-  }
+  // Always add console output
+  streams.push({
+    stream: pino.destination({
+      sync: false,
+    }),
+    level,
+  });
 
-  // Add Logstash output for ELK stack
+  // Add Logstash output for ELK stack (simplified)
   const logstashHost = process.env.LOGSTASH_HOST || "logstash";
   const logstashPort = parseInt(process.env.LOGSTASH_PORT || "5000", 10);
 
   if (logstashHost && logstashPort) {
     const net = require("net");
     let logstashStream: any = null;
-    let isConnected = false;
-    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-    const maxReconnectAttempts = 10;
-    let reconnectAttempts = 0;
+    let connectionAttempted = false;
 
     const connectToLogstash = () => {
-      if (logstashStream) {
-        logstashStream.destroy();
-      }
+      if (connectionAttempted) return;
+      connectionAttempted = true;
       
-      logstashStream = new net.Socket();
-      logstashStream.setKeepAlive(true, 10000);
-      logstashStream.setTimeout(30000);
-
-      logstashStream.connect(logstashPort, logstashHost, () => {
-        console.log(`✅ Connected to Logstash at ${logstashHost}:${logstashPort}`);
-        isConnected = true;
-        reconnectAttempts = 0;
-      });
-
-      logstashStream.on("error", (err: Error) => {
-        console.error(`❌ Logstash connection error:`, err.message);
-        isConnected = false;
-        scheduleReconnect();
-      });
-
-      logstashStream.on("close", () => {
-        console.log(`🔌 Logstash connection closed`);
-        isConnected = false;
-        scheduleReconnect();
-      });
-
-      logstashStream.on("timeout", () => {
-        console.error(`⏰ Logstash connection timeout`);
-        logstashStream.destroy();
-      });
-    };
-
-    const scheduleReconnect = () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-      
-      if (reconnectAttempts < maxReconnectAttempts) {
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-        console.log(`🔄 Scheduling Logstash reconnect attempt ${reconnectAttempts + 1}/${maxReconnectAttempts} in ${delay}ms`);
+      try {
+        logstashStream = new net.Socket();
+        logstashStream.setKeepAlive(true, 30000); // Keep alive for 30 seconds
         
-        reconnectTimeout = setTimeout(() => {
-          reconnectAttempts++;
-          connectToLogstash();
-        }, delay);
-      } else {
-        console.error(`💀 Max Logstash reconnect attempts (${maxReconnectAttempts}) exceeded`);
+        logstashStream.connect(logstashPort, logstashHost, () => {
+          console.log(`✅ Connected to Logstash at ${logstashHost}:${logstashPort}`);
+        });
+
+        logstashStream.on("error", (err: Error) => {
+          console.log(`⚠️  Logstash connection error: ${err.message} (continuing with console logging)`);
+          logstashStream = null;
+        });
+
+        logstashStream.on("close", () => {
+          console.log(`🔌 Logstash connection closed`);
+          logstashStream = null;
+        });
+      } catch (error) {
+        console.log(`⚠️  Could not connect to Logstash (continuing with console logging)`);
+        logstashStream = null;
       }
     };
 
-    // Initial connection with delay for container startup
-    setTimeout(() => {
-      connectToLogstash();
-    }, 2000);
+    // Try to connect after services are more likely to be ready
+    setTimeout(connectToLogstash, 10000); // 10 seconds instead of 2
 
     streams.push({
       stream: {
         write: (msg: string) => {
           try {
-            if (isConnected && logstashStream && logstashStream.writable) {
+            if (logstashStream && logstashStream.writable) {
               const logEntry = JSON.parse(msg);
-              // Ensure proper format for Logstash
               logEntry.timestamp = logEntry.time || new Date().toISOString();
               logEntry.service = logEntry.name || serviceName;
-              
               logstashStream.write(JSON.stringify(logEntry) + "\n");
-            } else if (!isConnected && reconnectAttempts < maxReconnectAttempts) {
-              // Buffer critical logs to console when Logstash is unavailable
-              console.log(`[BUFFERED LOG] ${msg.trim()}`);
             }
           } catch (error) {
-            console.error(`📝 Error writing to Logstash:`, error);
+            // Silently fail - console logging will still work
           }
         },
       },
-      level,
-    });
-  }
-
-  // Fallback to stdout if no streams configured
-  if (streams.length === 0) {
-    streams.push({
-      stream: process.stdout,
       level,
     });
   }
@@ -175,23 +131,6 @@ const setupMetrics = (
     help: "Total number of HTTP requests",
     labelNames: ["method", "route", "status_code", "service"],
     registers: [register],
-  });
-
-  // Active connections gauge
-  const activeConnections = new promClient.Gauge({
-    name: "http_active_connections",
-    help: "Number of active HTTP connections",
-    labelNames: ["service"],
-    registers: [register],
-  });
-
-  // Track active connections
-  fastify.addHook("onRequest", async () => {
-    activeConnections.labels(serviceName).inc();
-  });
-
-  fastify.addHook("onResponse", async () => {
-    activeConnections.labels(serviceName).dec();
   });
 
   // Track request metrics
@@ -248,7 +187,7 @@ const setupHealthCheck = (
   fastify: FastifyInstance,
   serviceName: string,
   healthPath: string = "/health",
-) => {
+): void => {
   fastify.get(
     healthPath,
     {
@@ -260,9 +199,8 @@ const setupHealthCheck = (
             type: "object",
             properties: {
               status: { type: "string" },
-              timestamp: { type: "string" },
-              uptime: { type: "number" },
               service: { type: "string" },
+              timestamp: { type: "string" },
             },
           },
         },
@@ -270,10 +208,9 @@ const setupHealthCheck = (
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return {
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
+        status: "ok",
         service: serviceName,
+        timestamp: new Date().toISOString(),
       };
     },
   );
@@ -283,98 +220,49 @@ export const setupObservability = (
   fastify: FastifyInstance,
   config: string | ObservabilityConfig,
 ): ObservabilitySetup => {
-  // Handle backward compatibility - allow string as first parameter
-  const observabilityConfig: ObservabilityConfig =
-    typeof config === "string" ? { serviceName: config } : config;
+  // Handle both string and object configs
+  let observabilityConfig: ObservabilityConfig;
+  if (typeof config === "string") {
+    observabilityConfig = { serviceName: config };
+  } else {
+    observabilityConfig = config;
+  }
 
   const {
     serviceName,
-    logLevel,
+    logLevel = "info",
     enableMetrics = true,
     enableHealthCheck = true,
     metricsPath = "/metrics",
     healthPath = "/health",
   } = observabilityConfig;
 
-  // Setup logging
   const logger = setupLogging(serviceName, logLevel);
+  
+  // Set up Fastify logger
   fastify.log = logger;
 
-  let metricsRegistry: promClient.Registry | undefined;
-
-  // Setup metrics if enabled
+  let metricsRegistry: promClient.Registry;
   if (enableMetrics) {
     metricsRegistry = setupMetrics(fastify, serviceName, metricsPath);
+  } else {
+    metricsRegistry = new promClient.Registry();
   }
 
-  // Setup health check if enabled
   if (enableHealthCheck) {
     setupHealthCheck(fastify, serviceName, healthPath);
   }
 
-  // Add request ID generation
-  fastify.addHook("onRequest", async (request, reply) => {
-    const requestId =
-      request.headers["x-request-id"] ||
-      `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    request.headers["x-request-id"] = requestId;
-    reply.header("x-request-id", requestId);
-  });
-
-  // Enhanced error handling
-  fastify.setErrorHandler((error, request, reply) => {
-    const requestId = request.headers["x-request-id"];
-
-    logger.error(
-      {
-        err: error,
-        req: {
-          id: requestId,
-          method: request.method,
-          url: request.url,
-        },
-      },
-      "Request error occurred",
-    );
-
-    const statusCode = error.statusCode || 500;
-    const response = {
-      error: {
-        message: statusCode >= 500 ? "Internal Server Error" : error.message,
-        statusCode,
-        ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
-      },
-      requestId,
-    };
-
-    reply.status(statusCode).send(response);
-  });
-
-  logger.info(
-    {
-      service: serviceName,
-      features: {
-        logging: true,
-        metrics: enableMetrics,
-        healthCheck: enableHealthCheck,
-        metricsPath: enableMetrics ? metricsPath : undefined,
-        healthPath: enableHealthCheck ? healthPath : undefined,
-      },
-    },
-    "Observability setup complete",
-  );
-
   return {
     logger,
-    metricsRegistry: metricsRegistry || new promClient.Registry(),
+    metricsRegistry,
   };
 };
 
-// Backward compatibility export
+// Legacy support for backward compatibility
 export const setupObservabilityLegacy = (
   fastify: FastifyInstance,
   serviceName: string,
 ) => {
-  return setupObservability(fastify, { serviceName });
+  return setupObservability(fastify, serviceName);
 };

@@ -1,132 +1,126 @@
-# Environment Variables Setup Guide
+# Environment Setup Guide - ft_transcendence
 
-## Quick Setup
+## 🚀 Quick Start
 
-1. **Copy the example environment file:**
+1. **Copy environment files for each service:**
    ```bash
-   cp .env.example .env
+   cp packages/frontend/env_example packages/frontend/.env
+   cp packages/game/env_example packages/game/.env
    ```
 
-2. **Customize your environment variables:**
-   Edit the `.env` file and update any values specific to your environment.
-
-3. **Start the services:**
+2. **Start all services:**
    ```bash
-   docker-compose up -d
+   make up
    ```
 
-## Environment Configuration
+3. **Access your services:**
+   - Frontend: http://localhost:3005
+   - Game: http://localhost:3002  
+   - Grafana: http://localhost:3001
+   - Kibana: http://localhost:5601
 
-### Core Services Configuration
+## 📋 Service Configuration
 
-The `.env` file controls all aspects of your ft-transcendence DevOps stack:
+### Frontend Service (Port 3005)
+```bash
+# packages/frontend/.env
+PORT=3005
+NODE_ENV=production
+HOST=0.0.0.0
+LOG_LEVEL=info
+LOGSTASH_HOST=logstash
+LOGSTASH_PORT=5000
+GAME_SERVICE_URL=http://localhost:3002
+```
 
-#### **ELK Stack (Elasticsearch, Logstash, Kibana)**
-- `ELASTICSEARCH_PORT=9200` - Elasticsearch web interface
-- `KIBANA_PORT=5601` - Kibana dashboard
-- `LOGSTASH_TCP_PORT=5000` - Log ingestion port
-- `LOGSTASH_HTTP_PORT=9600` - Logstash management API
+### Game Service (Port 3002)
+```bash
+# packages/game/.env
+PORT=3002
+NODE_ENV=production
+HOST=0.0.0.0
+LOG_LEVEL=info
+LOGSTASH_HOST=logstash
+LOGSTASH_PORT=5000
+GAME_MODE=pong
+ENABLE_AI=true
+```
 
-#### **Monitoring Stack (Prometheus, Grafana)**
-- `PROMETHEUS_PORT=9090` - Prometheus metrics interface
-- `GRAFANA_PORT=3001` - Grafana dashboards
-- `GRAFANA_ADMIN_USER=admin` - Default Grafana admin username
-- `GRAFANA_ADMIN_PASSWORD=admin` - **Change this in production!**
+## 📊 Monitoring Stack
 
-### Security Considerations
+The project includes a complete monitoring stack with:
 
-🔒 **Important**: Before deploying to production:
-
-1. **Change default passwords:**
-   ```bash
-   # Update in .env file
-   GRAFANA_ADMIN_PASSWORD=your-secure-password-here
-   ```
-
-2. **Add application secrets:**
-   ```bash
-   # Uncomment and set these in .env
-   JWT_SECRET=your-super-secret-jwt-key-here
-   SESSION_SECRET=your-session-secret-here
-   DATABASE_URL=sqlite:///app/data/ft_transcendence.db
-   ```
-
-3. **Configure CORS origins:**
-   ```bash
-   CORS_ORIGINS=http://localhost:3000,http://localhost:3001
-   ```
-
-## Service URLs
-
-After running `docker-compose up -d`, access your services at:
-
+### ELK Stack (Logging)
 - **Elasticsearch**: http://localhost:9200
 - **Kibana**: http://localhost:5601
-- **Logstash**: http://localhost:9600 (management)
-- **Prometheus**: http://localhost:9090
+- **Logstash**: TCP port 5000
+
+### Prometheus + Grafana (Metrics)
 - **Grafana**: http://localhost:3001 (admin/admin)
+- **Prometheus**: http://localhost:9090
 
-## Validation Commands
+## 🔧 Docker Compose Configuration
 
-```bash
-# Check if all services are running
-docker-compose ps
+All services are configured in `docker-compose.yml` with sensible defaults:
 
-# View service logs
-docker-compose logs [service-name]
-
-# Test Elasticsearch
-curl http://localhost:9200/_cluster/health
-
-# Test Prometheus metrics
-curl http://localhost:9090/api/v1/status/config
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Port conflicts:**
-   - Update ports in `.env` if they're already in use
-   - Example: `GRAFANA_PORT=3002` instead of `3001`
-
-2. **Memory issues:**
-   - Reduce Java heap sizes in `.env`:
-     ```bash
-     ELASTICSEARCH_JAVA_OPTS=-Xms256m -Xmx256m
-     LOGSTASH_JAVA_OPTS=-Xmx128m -Xms128m
-     ```
-
-3. **Volume permissions:**
-   ```bash
-   # Fix Elasticsearch volume permissions
-   sudo chown -R 1000:1000 /var/lib/docker/volumes/ft_transcendence_esdata
-   ```
-
-## Adding Application Services
-
-When you add your application services, uncomment and configure these variables in `.env`:
-
-```bash
-# Application Configuration
-APP_PORT=3000
-APP_HOST=localhost
-DATABASE_URL=sqlite:///app/data/ft_transcendence.db
-
-# Observability
-LOG_LEVEL=info
-OBSERVABILITY_SERVICE_NAME=ft-transcendence
-```
-
-Then update your service in `docker-compose.yml`:
 ```yaml
-your_service:
-  build: .
-  ports:
-    - "${APP_PORT:-3000}:3000"
-  environment:
-    - LOG_LEVEL=${LOG_LEVEL:-info}
-    - DATABASE_URL=${DATABASE_URL}
-  networks:
-    - ${NETWORK_NAME:-ft-net}
+services:
+  frontend:    # Port 3005
+  game:        # Port 3002
+  elasticsearch: # Port 9200
+  kibana:      # Port 5601
+  logstash:    # Port 5000
+  prometheus:  # Port 9090
+  grafana:     # Port 3001
 ```
+
+## 🛠️ Troubleshooting
+
+### Port Conflicts
+If any ports are already in use, you can change them by updating the corresponding environment variables in `docker-compose.yml`:
+
+```yaml
+# Example: Change frontend port
+frontend:
+  ports:
+    - "3006:3005"  # Use port 3006 instead of 3005
+```
+
+### Memory Issues
+If you encounter memory issues with Elasticsearch:
+
+```bash
+# In docker-compose.yml, reduce memory allocation:
+elasticsearch:
+  environment:
+    - ES_JAVA_OPTS=-Xms256m -Xmx256m
+```
+
+### Log Connectivity
+Services will automatically try to connect to Logstash. If it's not available:
+- Services will continue to log to console
+- No need to change configuration
+
+## 🎯 Project Overview
+
+This setup provides:
+1. **Two main services**: Frontend (login/UI) and Game (Pong)
+2. **Complete monitoring**: Logs in Kibana, metrics in Grafana
+3. **Simple commands**: `make up` to start, `make down` to stop
+4. **Professional setup**: All logs visible in console + dashboards
+
+### Quick Commands
+```bash
+make up      # Start everything
+make down    # Stop everything
+make run     # Open apps in browser
+make metrics # Open monitoring dashboards
+make clean   # Full cleanup
+```
+
+The project demonstrates modern DevOps practices including:
+- Containerized applications
+- Structured logging
+- Metrics collection
+- Service monitoring
+- Modern web development

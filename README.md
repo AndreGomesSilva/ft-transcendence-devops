@@ -1,101 +1,193 @@
-# @ft-transcendence/observability
+# ft_transcendence - DevOps Edition
 
-🚀 **Simple observability for your Node.js services** - Add logging, metrics, and health checks in seconds!
+🎮 **A modern Pong game with professional monitoring and logging**
 
-## Quick Setup (3 steps)
+## 📋 What's This Project?
 
-### 1. Get the package
-```bash
-# From this repo (recommended for peers)
-git clone <this-repo>
-cd packages/observability
-npm pack
-# This creates: ft-transcendence-observability-1.0.0.tgz
+This is a **simplified ft_transcendence** implementation focused on DevOps practices. It includes:
 
-# In your service directory
-npm install /path/to/ft-transcendence-observability-1.0.0.tgz
-```
+- 🎯 **Pong Game**: Classic game built with TypeScript and p5.js
+- 🌐 **Frontend**: Login interface with retro styling
+- 📊 **Complete Monitoring**: ELK stack (Elasticsearch, Logstash, Kibana) + Prometheus + Grafana
+- 🐳 **Containerized**: Everything runs in Docker containers
+- 📈 **Production Ready**: Structured logging, metrics, health checks
 
-### 2. Add to your Fastify service
-```javascript
-const Fastify = require('fastify');
-const { setupObservability } = require('@ft-transcendence/observability');
-
-const fastify = Fastify();
-
-// One line setup!
-const { logger } = setupObservability(fastify, 'my-service-name');
-
-// Your routes
-fastify.get('/', async () => {
-  logger.info('Hello world!');
-  return { message: 'Hello World!' };
-});
-
-fastify.listen({ port: 3000 });
-```
-
-### 3. That's it! You now have:
-- ✅ **Structured logging** with JSON format
-- ✅ **Health endpoint** at `/health`
-- ✅ **Metrics endpoint** at `/metrics` (Prometheus format)
-- ✅ **HTTP request tracking** (automatic)
-- ✅ **ELK stack integration** (if available)
-
-## Configuration Options
-
-```javascript
-// Simple (recommended)
-setupObservability(fastify, 'my-service');
-
-// Or with options
-setupObservability(fastify, {
-  serviceName: 'my-service',
-  logLevel: 'info',              // debug, info, warn, error
-  enableMetrics: true,           // /metrics endpoint
-  enableHealthCheck: true,       // /health endpoint
-  metricsPath: '/custom-metrics', // change metrics path
-  healthPath: '/custom-health'    // change health path
-});
-```
-
-## What endpoints do I get?
-
-| Endpoint | What it does |
-|----------|-------------|
-| `GET /health` | Returns `{"status":"ok","service":"my-service","timestamp":"..."}` |
-| `GET /metrics` | Prometheus metrics (CPU, memory, HTTP requests, etc.) |
-
-## Environment Variables (optional)
+## 🚀 Quick Start (3 Commands)
 
 ```bash
-# Set log level
-LOG_LEVEL=debug
+# 1. Set up environment
+cp packages/frontend/env_example packages/frontend/.env
+cp packages/game/env_example packages/game/.env
 
-# Connect to ELK stack (if you have it)
-LOGSTASH_HOST=localhost
-LOGSTASH_PORT=5000
+# 2. Start everything
+make up
+
+# 3. Open in browser
+make run
 ```
 
-## Examples
+**That's it!** You now have a complete application with monitoring running.
 
-### Basic Express-style service
-```javascript
-const Fastify = require('fastify');
-const { setupObservability } = require('@ft-transcendence/observability');
+## 🎯 What You'll See
 
-const fastify = Fastify();
-const { logger } = setupObservability(fastify, 'user-service');
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Frontend** | http://localhost:3005 | Login interface (use any username/password) |
+| **Game** | http://localhost:3002 | Pong game (opens from frontend) |
+| **Kibana** | http://localhost:5601 | View application logs |
+| **Grafana** | http://localhost:3001 | View metrics (admin/admin) |
 
-fastify.get('/users/:id', async (request) => {
-  const { id } = request.params;
-  logger.info('Fetching user', { userId: id });
-  
-  // Your business logic here
-  return { id, name: 'John Doe' };
-});
+## 🏗️ Architecture
 
-fastify.listen({ port: 3000 }, () => {
-  logger.info('User service started on port 3000');
-});
 ```
+┌─────────────────────────────────────────────────────────────┐
+│                    ft_transcendence                         │
+├─────────────────────────────────────────────────────────────┤
+│  Frontend (3005)  │  Game (3002)  │  Monitoring Stack      │
+│  ├─ Login UI      │  ├─ Pong Game │  ├─ Elasticsearch      │
+│  ├─ TypeScript    │  ├─ p5.js     │  ├─ Kibana (logs)      │
+│  └─ Fastify       │  └─ Fastify   │  ├─ Logstash           │
+│                   │               │  ├─ Prometheus         │
+│                   │               │  └─ Grafana (metrics)  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🛠️ Commands
+
+```bash
+# Start all services
+make up
+
+# Stop all services  
+make down
+
+# Open applications in browser
+make run
+
+# Open monitoring dashboards
+make metrics
+
+# Complete cleanup (remove containers, volumes, images)
+make clean
+
+# Show all commands
+make help
+```
+
+## 📁 Project Structure
+
+```
+ft-transcendence-devops/
+├── packages/
+│   ├── frontend/           # Login and UI service
+│   ├── game/              # Pong game service
+│   └── observability/     # Logging and metrics library
+├── devops/
+│   ├── grafana/           # Grafana dashboards
+│   ├── prometheus/        # Prometheus configuration
+│   └── logstash/          # Logstash pipeline
+├── docker-compose.yml     # All services configuration
+├── Makefile              # Simple commands
+└── ENV_SETUP.md          # Detailed environment setup
+```
+
+## 🎓 Technical Features
+
+This project demonstrates:
+
+### DevOps Practices
+- ✅ **Containerization** with Docker
+- ✅ **Service orchestration** with docker-compose
+- ✅ **Monitoring** with Prometheus + Grafana
+- ✅ **Logging** with ELK stack
+- ✅ **Health checks** and metrics
+
+### Web Development
+- ✅ **TypeScript** for type safety
+- ✅ **Node.js** backend services
+- ✅ **Modern frontend** with Tailwind CSS
+- ✅ **Game development** with p5.js
+
+### Production Concepts
+- ✅ **Structured logging** (JSON format)
+- ✅ **Metrics collection** (Prometheus format)
+- ✅ **Environment configuration**
+- ✅ **Service communication**
+
+## 📊 Monitoring Features
+
+### Logs (Kibana)
+- Real-time log streaming
+- Structured JSON logs
+- Service-specific filtering
+- Error tracking
+
+### Metrics (Grafana)
+- HTTP request metrics
+- System resource usage
+- Application performance
+- Custom dashboards
+
+### Health Checks
+- `/health` endpoint on each service
+- Container health monitoring
+- Service dependency tracking
+
+## 🔧 Development
+
+### Adding New Features
+1. Services are in `packages/` directory
+2. Each service has its own `Dockerfile`
+3. Environment variables in `env_example` files
+4. Logs automatically go to ELK stack
+5. Metrics automatically collected
+
+### Debugging
+```bash
+# View logs for specific service
+docker-compose logs frontend
+docker-compose logs game
+
+# Check service health
+curl http://localhost:3005/health
+curl http://localhost:3002/health
+
+# View metrics
+curl http://localhost:3005/metrics
+```
+
+## 🌟 Why This Project?
+
+1. **Real-world skills**: Production-ready monitoring and logging
+2. **Complete stack**: Frontend, backend, monitoring, logging
+3. **Simple setup**: Everything works with `make up`
+4. **Professional**: Clear architecture, good documentation
+5. **Scalable**: Easy to add new services and features
+
+## 🚀 Key Benefits
+
+- **Meets ft_transcendence requirements**: Pong game, TypeScript, Docker
+- **Production-ready practices**: Monitoring, logging, DevOps
+- **Clean architecture**: Simple setup, clear commands
+- **Professional quality**: Industry-standard tools and practices
+
+## 🤝 Contributing
+
+Feel free to:
+- Add new monitoring dashboards
+- Improve game features
+- Enhance logging
+- Add new services
+- Improve documentation
+
+## 📚 Learn More
+
+- [Environment Setup](ENV_SETUP.md) - Detailed configuration guide
+- [Observability Guide](packages/observability/docs.md) - Logging and metrics
+- [Subject Requirements](docs/doc-devops/en.subject.txt) - Original ft_transcendence requirements
+
+---
+
+**Modern DevOps practices for web applications**
+
+*Professional monitoring and logging for game development*

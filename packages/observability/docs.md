@@ -1,258 +1,102 @@
-# Observability Library - Technical Documentation
+# Observability Package - Technical Guide
 
-## Architecture Overview
+This package provides **logging, metrics, and health checks** for your ft_transcendence services.
 
-The `@ft-transcendence/observability` library provides a comprehensive observability solution for Node.js applications built with Fastify. It integrates three core pillars of observability:
+## 🚀 Quick Start
 
-1. **Logging** - Structured JSON logging with Pino
-2. **Metrics** - Prometheus-compatible metrics collection
-3. **Health Monitoring** - HTTP health check endpoints
-
-## Core Components
-
-### 1. Logging System (`setupLogging`)
-
-#### Features
-- **Structured Logging**: Uses Pino for high-performance JSON logging
-- **Multi-Stream Output**: Console for development, Logstash for production
-- **Automatic Reconnection**: Resilient TCP connection to Logstash
-- **Service Context**: All logs include service name and metadata
-
-#### Technical Implementation
-
-```typescript
-const setupLogging = (serviceName: string, logLevel?: string): Logger => {
-  const level = logLevel || process.env.LOG_LEVEL || "info";
-  const streams: any[] = [];
-
-  // Console stream for development
-  if (process.env.NODE_ENV !== "production") {
-    streams.push({
-      stream: pino.destination({ sync: false }),
-      level,
-    });
-  }
-
-  // Logstash TCP stream for production
-  const logstashHost = process.env.LOGSTASH_HOST || "logstash";
-  const logstashPort = parseInt(process.env.LOGSTASH_PORT || "5000", 10);
-  
-  // ... TCP connection logic with automatic reconnection
-}
+### 1. Install in your service
+```bash
+npm install @ft-transcendence/observability
 ```
 
-#### Connection Management
-- **Graceful Reconnection**: Exponential backoff with maximum retry attempts
-- **Error Handling**: Comprehensive error handling for network issues
-- **Timeout Management**: Connection timeout handling to prevent hanging
+### 2. Add to your Fastify service
+```javascript
+const Fastify = require('fastify');
+const { setupObservability } = require('@ft-transcendence/observability');
 
-### 2. Metrics Collection (`setupMetrics`)
+const fastify = Fastify();
 
-#### Prometheus Integration
-The library automatically registers and collects:
+// One line setup!
+setupObservability(fastify, 'my-service-name');
 
-1. **HTTP Request Metrics**:
-   - `http_requests_total` - Counter of total HTTP requests
-   - `http_request_duration_seconds` - Histogram of request durations
-   - Labels: `method`, `route`, `status_code`, `service`
+// Your routes
+fastify.get('/', async () => {
+  fastify.log.info('Hello world!');
+  return { message: 'Hello World!' };
+});
 
-2. **Node.js Runtime Metrics**:
-   - Memory usage (heap, external, RSS)
-   - CPU usage and process information
-   - Event loop lag and active handles
-   - Garbage collection statistics
-
-#### Technical Implementation
-
-```typescript
-const setupMetrics = (
-  fastify: FastifyInstance,
-  serviceName: string,
-  metricsPath: string = "/metrics"
-): promClient.Registry => {
-  const register = new promClient.Registry();
-  
-  // Collect default Node.js metrics
-  promClient.collectDefaultMetrics({
-    register,
-    prefix: 'nodejs_',
-    labels: { service: serviceName }
-  });
-
-  // HTTP request metrics
-  const httpRequestsTotal = new promClient.Counter({
-    name: 'http_requests_total',
-    help: 'Total number of HTTP requests',
-    labelNames: ['method', 'route', 'status_code', 'service'],
-    registers: [register]
-  });
-
-  const httpRequestDuration = new promClient.Histogram({
-    name: 'http_request_duration_seconds',
-    help: 'Duration of HTTP requests in seconds',
-    labelNames: ['method', 'route', 'status_code', 'service'],
-    buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10],
-    registers: [register]
-  });
-
-  // Fastify hooks for automatic metric collection
-  fastify.addHook('onRequest', async (request) => {
-    request.startTime = process.hrtime();
-  });
-
-  fastify.addHook('onResponse', async (request, reply) => {
-    const diff = process.hrtime(request.startTime);
-    const duration = diff[0] + diff[1] * 1e-9;
-
-    const labels = {
-      method: request.method,
-      route: request.routerPath || request.url,
-      status_code: reply.statusCode.toString(),
-      service: serviceName
-    };
-
-    httpRequestsTotal.inc(labels);
-    httpRequestDuration.observe(labels, duration);
-  });
-
-  return register;
-};
+fastify.listen({ port: 3000 });
 ```
 
-### 3. Health Check System (`setupHealthCheck`)
+### 3. What you get automatically:
+- ✅ **Structured logging** (JSON format)
+- ✅ **Health endpoint** at `/health`
+- ✅ **Metrics endpoint** at `/metrics` (for Prometheus)
+- ✅ **ELK stack integration** (if available)
 
-#### Health Endpoint Features
-- **Service Status**: Always returns operational status
-- **Metadata**: Includes service name, timestamp, and uptime
-- **Extensible**: Can be extended with custom health checks
+## 📊 Endpoints
 
-#### Response Format
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Returns `{"status":"ok","service":"my-service","timestamp":"..."}` |
+| `GET /metrics` | Prometheus metrics for monitoring |
 
-```json
-{
-  "status": "ok",
-  "service": "my-service",
-  "timestamp": "2024-01-01T12:00:00.000Z",
-  "uptime": 3600
-}
+## 🔧 Configuration
+
+### Simple
+```javascript
+setupObservability(fastify, 'my-service');
 ```
 
-## Configuration System
-
-### Main Configuration Interface
-
-```typescript
-export interface ObservabilityConfig {
-  serviceName: string;
-  logLevel?: string;           // debug, info, warn, error
-  enableMetrics?: boolean;     // default: true
-  enableHealthCheck?: boolean; // default: true
-  metricsPath?: string;        // default: "/metrics"
-  healthPath?: string;         // default: "/health"
-}
+### With options
+```javascript
+setupObservability(fastify, {
+  serviceName: 'my-service',
+  logLevel: 'info',        // debug, info, warn, error
+  enableMetrics: true,     // Enable /metrics endpoint
+  enableHealthCheck: true  // Enable /health endpoint
+});
 ```
 
-### Environment Variables
+## 🌐 Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `LOG_LEVEL` | Logging level | `info` |
-| `NODE_ENV` | Environment mode | `development` |
-| `LOGSTASH_HOST` | Logstash server host | `logstash` |
-| `LOGSTASH_PORT` | Logstash TCP port | `5000` |
+```bash
+# Optional - for ELK stack integration
+LOGSTASH_HOST=logstash
+LOGSTASH_PORT=5000
 
-## Integration Patterns
-
-### 1. ELK Stack Integration
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
-    ports:
-      - "9200:9200"
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-
-  logstash:
-    image: docker.elastic.co/logstash/logstash:8.5.0
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.5.0
-    ports:
-      - "5601:5601"
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+# Log level
+LOG_LEVEL=info
 ```
 
-### 2. Prometheus Integration
+## 📝 Logging Examples
 
-```yaml
-# prometheus.yml
-global:
-  scrape_interval: 15s
+```javascript
+// Basic logging
+fastify.log.info('User logged in');
+fastify.log.error('Database connection failed');
 
-scrape_configs:
-  - job_name: 'my-service'
-    static_configs:
-      - targets: ['localhost:3000']
-    metrics_path: '/metrics'
-    scrape_interval: 5s
+// Structured logging
+fastify.log.info({ userId: 123, action: 'login' }, 'User logged in');
 ```
 
-## Error Handling & Resilience
+## 🔍 How it works
 
-### Logging Resilience
-- **Connection Failures**: Automatic reconnection with exponential backoff
-- **Network Issues**: Graceful degradation, continues local logging
-- **Buffer Management**: Internal buffering during connection outages
+1. **Console Logging**: Always enabled for development
+2. **ELK Integration**: Automatically sends logs to Logstash if available
+3. **Metrics**: Tracks HTTP requests, response times, and system metrics
+4. **Health Check**: Simple endpoint to verify service is running
 
-### Metrics Resilience
-- **Registry Isolation**: Each service gets its own metrics registry
-- **Memory Management**: Automatic cleanup of stale metrics
-- **Performance**: Non-blocking metric collection
+## 🎯 Features
 
-## Performance Considerations
+This package provides professional observability capabilities for your ft_transcendence project:
 
-### Logging Performance
-- **Async Operations**: All logging operations are asynchronous
-- **Stream Optimization**: Efficient stream handling with Pino
-- **Minimal Overhead**: < 1ms average logging overhead
+- **Simple setup**: One function call to enable all features
+- **Production ready**: Structured logging and metrics collection
+- **Flexible**: Works with or without ELK stack
+- **Lightweight**: Minimal performance impact
 
-### Metrics Performance
-- **In-Memory Collection**: All metrics stored in memory
-- **Efficient Serialization**: Optimized Prometheus format serialization
-- **Hook Optimization**: Minimal request processing overhead
-
-## Deployment Best Practices
-
-### 1. Container Deployment
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-
-# Install dependencies
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy application
-COPY . .
-
-# Build if necessary
-RUN npm run build
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
-
-EXPOSE 3000
-CMD ["node", "dist/index.js"]
-```
+The logs will appear in:
+- Your console (always)
+- Kibana dashboard (if ELK stack is running)
+- Grafana metrics (if Prometheus is configured)

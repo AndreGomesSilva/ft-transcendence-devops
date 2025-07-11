@@ -1,19 +1,7 @@
 name: ${PROJECT_NAME:-ft_transcendence}
 
 services:
-  # add your services here
-  example_service:
-    build:
-      context: .
-      dockerfile: ./packages/example_service/Dockerfile
-    env_file: ./packages/example_service/.env
-    ports:
-      - "${APP_PORT:-3000}:3000"
-    networks:
-      - ${NETWORK_NAME:-ft-net}
-    depends_on:
-      - logstash
-
+  # Core application services
   frontend:
     build:
       context: .
