@@ -286,6 +286,114 @@ echo "Game logs:" && curl -s "http://localhost:9200/logs-*/_count?q=game-service
 # - Ubuntu: sudo apt-get install jq
 # - Or use commands without jq (they'll show raw JSON)
 
+# 16. PROMETHEUS ALERT TESTING
+# ----------------------------
+# Test Prometheus alerts and monitoring
+
+# Check if Prometheus is running
+docker-compose ps prometheus
+
+# Restart Prometheus to pick up new alert rules
+docker-compose restart prometheus
+
+# Check Prometheus targets (what services are monitored)
+curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, instance: .labels.instance, health: .health, lastScrape: .lastScrape}'
+
+# Check all loaded alert rules
+curl -s http://localhost:9090/api/v1/rules | jq '.data.groups[] | select(.name == "ft_transcendence_alerts") | .rules[] | {alert: .name, state: .state}'
+
+# Check currently firing alerts
+curl -s http://localhost:9090/api/v1/alerts | jq '.data.alerts[] | {alertname: .labels.alertname, job: .labels.job, state: .state, activeAt: .activeAt}'
+
+# Check specific alert details
+curl -s http://localhost:9090/api/v1/alerts | jq '.data.alerts[] | select(.labels.alertname == "TestAlert") | {job: .labels.job, state: .state, activeAt: .activeAt}'
+
+# Test ServiceDown alert by stopping a service
+docker-compose stop game
+echo "Waiting 1 minute for ServiceDown alert..."
+sleep 60
+curl -s http://localhost:9090/api/v1/alerts | jq '.data.alerts[] | select(.labels.alertname == "ServiceDown") | {job: .labels.job, state: .state}'
+docker-compose start game
+
+# Monitor alerts in real-time (check every 10 seconds)
+watch -n 10 'curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | {alert: .labels.alertname, job: .labels.job, state: .state}"'
+
+# Check Prometheus configuration
+curl -s http://localhost:9090/api/v1/status/config | jq '.data.yaml'
+
+# Check Prometheus metrics about itself
+curl -s http://localhost:9090/metrics | grep prometheus_
+
+# Access Prometheus web interface
+echo "Prometheus UI: http://localhost:9090"
+echo "Alerts page: http://localhost:9090/alerts"
+echo "Targets page: http://localhost:9090/targets"
+echo "Rules page: http://localhost:9090/rules"
+
+# Quick alert test function for any service
+test_service_alert() {
+    SERVICE_NAME=$1
+    echo "Testing alerts for service: $SERVICE_NAME"
+    echo "1. Checking if service is monitored..."
+    curl -s http://localhost:9090/api/v1/targets | jq ".data.activeTargets[] | select(.labels.job == \"$SERVICE_NAME\") | {job: .labels.job, health: .health}"
+    echo "2. Checking current alerts for service..."
+    curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | select(.labels.job == \"$SERVICE_NAME\") | {alert: .labels.alertname, state: .state}"
+    echo "3. Stopping service to test ServiceDown alert..."
+    docker-compose stop $SERVICE_NAME
+    echo "4. Waiting 1 minute for alert to fire..."
+    sleep 60
+    curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | select(.labels.job == \"$SERVICE_NAME\") | {alert: .labels.alertname, state: .state}"
+    echo "5. Restarting service..."
+    docker-compose start $SERVICE_NAME
+}
+
+# Usage examples:
+# test_service_alert frontend
+# test_service_alert game-service
+
+# Check alert evaluation times
+curl -s http://localhost:9090/api/v1/rules | jq '.data.groups[] | .rules[] | {alert: .name, evaluationTime: .evaluationTime, lastEvaluation: .lastEvaluation}'
+
+# =============================================================================
+# PROMETHEUS ALERT TROUBLESHOOTING
+# =============================================================================
+
+# If alerts are not showing:
+# 1. Check if alerts.yml is loaded: curl -s http://localhost:9090/api/v1/rules
+# 2. Check if prometheus.yml has rule_files section
+# 3. Restart Prometheus: docker-compose restart prometheus
+# 4. Check Prometheus logs: docker-compose logs prometheus
+
+# If TestAlert is not firing:
+# 1. Check if services are UP: curl -s http://localhost:9090/api/v1/targets
+# 2. Wait 10 seconds (TestAlert has 10s 'for' duration)
+# 3. Check alert state: curl -s http://localhost:9090/api/v1/alerts
+
+# If ServiceDown alert is not firing:
+# 1. Stop a service: docker-compose stop game
+# 2. Wait 1 minute (ServiceDown has 1m 'for' duration)
+# 3. Check alert: curl -s http://localhost:9090/api/v1/alerts
+
+# =============================================================================
+# EXPECTED ALERT OUTPUTS
+# =============================================================================
+
+# TestAlert (fires when services are UP):
+# {
+#   "alertname": "TestAlert",
+#   "job": "frontend",
+#   "state": "firing",
+#   "activeAt": "2025-07-11T22:16:36.772878016Z"
+# }
+
+# ServiceDown Alert (fires when services are DOWN):
+# {
+#   "alertname": "ServiceDown", 
+#   "job": "game-service",
+#   "state": "firing",
+#   "activeAt": "2025-07-11T22:20:15.123456789Z"
+# }
+
 # =============================================================================
 # COMMON SERVICE NAMES IN THIS PROJECT
 # =============================================================================

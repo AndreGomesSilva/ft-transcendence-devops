@@ -10,7 +10,7 @@ dotenv.config();
 const app = Fastify();
 
 // Setup observability for ELK stack
-const observabilitySetup = setupObservability(app, {
+setupObservability(app, {
   serviceName: "game-service",
   logLevel: process.env['LOG_LEVEL'] || "info",
   enableMetrics: true,

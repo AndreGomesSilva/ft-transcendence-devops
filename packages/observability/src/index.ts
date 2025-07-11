@@ -80,7 +80,7 @@ const setupLogging = (serviceName: string, logLevel?: string): Logger => {
               logstashStream.write(JSON.stringify(logEntry) + "\n");
             }
           } catch (error) {
-            // Silently fail - console logging will still work
+            console.log(`⚠️  Error writing to Logstash:`, error);
           }
         },
       },
@@ -257,12 +257,4 @@ export const setupObservability = (
     logger,
     metricsRegistry,
   };
-};
-
-// Legacy support for backward compatibility
-export const setupObservabilityLegacy = (
-  fastify: FastifyInstance,
-  serviceName: string,
-) => {
-  return setupObservability(fastify, serviceName);
 };

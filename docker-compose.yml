@@ -81,6 +81,7 @@ services:
       - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ${PROMETHEUS_CONFIG_PATH:-./devops/prometheus/prometheus.yml}:/etc/prometheus/prometheus.yml
+      - ${PROMETHEUS_ALERTS_PATH:-./devops/prometheus/alerts.yml}:/etc/prometheus/alerts.yml
     networks:
       - ${NETWORK_NAME:-ft-net}
 
